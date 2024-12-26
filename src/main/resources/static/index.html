@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket 채팅</title>
+</head>
+<body>
+<h1>WebSocket 채팅</h1>
+<div>
+    <input id="message" placeholder="메시지를 입력하세요"/>
+    <button onclick="sendMessage()">전송</button>
+</div>
+<ul id="chat"></ul>
+
+<script>
+    const socket = new WebSocket("ws://192.168.7.5:8080/chat");
+
+    socket.onopen = () => {
+        console.log("웹소켓 연결 완료");
+    };
+
+    socket.onmessage = (event) => {
+        const chatBox = document.getElementById("chat");
+        const newMessage = document.createElement("li");
+        newMessage.textContent = event.data;
+        chatBox.appendChild(newMessage);
+    };
+
+    function sendMessage() {
+        const input = document.getElementById("message");
+        socket.send(input.value);
+        input.value = '';
+    }
+
+    socket.onclose = () => {
+        console.log("웹소켓 연결 종료");
+    };
+</script>
+</body>
+</html>
