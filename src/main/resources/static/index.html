@@ -16,6 +16,10 @@
 <!-- 채팅 입력 및 전송 -->
 <div id="chat-container" style="display:none;">
     <p id="welcome-message"></p> <!-- 사용자 ID 표시 -->
+    <div id="user-list-container">
+        <strong>접속자 목록:</strong>
+        <ul id="user-list"></ul>
+    </div>
     <input id="message" placeholder="메시지를 입력하세요"/>
     <button onclick="sendMessage()">전송</button>
 </div>
@@ -53,9 +57,23 @@
 
         socket.onmessage = (event) => {
             const chatBox = document.getElementById("chat");
-            const newMessage = document.createElement("li");
-            newMessage.textContent = event.data; // 서버에서 받은 메시지
-            chatBox.appendChild(newMessage);
+            const userListBox = document.getElementById("user-list");
+
+            // 사용자 목록 업데이트
+            if (event.data.startsWith("[USER_LIST]")) {
+                const users = event.data.replace("[USER_LIST] 접속자 목록: ", "").split(", ");
+                userListBox.innerHTML = ""; // 기존 목록 초기화
+                users.forEach(user => {
+                    const userItem = document.createElement("li");
+                    userItem.textContent = user.trim();
+                    userListBox.appendChild(userItem);
+                });
+            } else {
+                // 일반 메시지 처리
+                const newMessage = document.createElement("li");
+                newMessage.textContent = event.data;
+                chatBox.appendChild(newMessage);
+            }
         };
 
         socket.onclose = () => {

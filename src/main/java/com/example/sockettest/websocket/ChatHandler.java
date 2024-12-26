@@ -6,11 +6,14 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class ChatHandler extends TextWebSocketHandler {
 
     private final Map<WebSocketSession, String> userSessions = new HashMap<>();
+    private final Set<String> activeUsers = new HashSet<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -20,7 +23,11 @@ public class ChatHandler extends TextWebSocketHandler {
 
         // 세션과 userId 매핑
         userSessions.put(session, userId);
+        activeUsers.add(userId);
         System.out.println("새로운 연결: " + userId + " (세션 ID: " + session.getId() + ")");
+
+        // 현재 접속자 목록 전송
+        broadcastUserList();
     }
 
     @Override
@@ -38,8 +45,28 @@ public class ChatHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        String userId = userSessions.remove(session); // 연결 종료 시 제거
+        String userId = userSessions.remove(session); // 세션 제거
+        activeUsers.remove(userId); // 사용자 목록에서 제거
         System.out.println("연결 종료: " + userId + " (세션 ID: " + session.getId() + ")");
+
+        // 사용자 목록 업데이트
+        broadcastUserList();
+    }
+
+    // 사용자 목록을 브로드캐스트
+    private void broadcastUserList() {
+        String userList = "접속자 목록: " + String.join(", ", activeUsers);
+        System.out.println(userList);
+
+        for (WebSocketSession session : userSessions.keySet()) {
+            if (session.isOpen()) {
+                try {
+                    session.sendMessage(new TextMessage("[USER_LIST] " + userList));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
 }
