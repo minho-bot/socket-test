@@ -5,25 +5,31 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ChatHandler extends TextWebSocketHandler {
 
-    // 연결된 클라이언트를 저장하는 리스트
-    private final List<WebSocketSession> sessions = new ArrayList<>();
+    private final Map<WebSocketSession, String> userSessions = new HashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        sessions.add(session);
-        System.out.println("새로운 연결: " + session.getId());
+        // 인터셉터에서 저장한 userId 가져오기
+        Map<String, Object> attributes = session.getAttributes();
+        String userId = (String) attributes.get("userId");
+
+        // 세션과 userId 매핑
+        userSessions.put(session, userId);
+        System.out.println("새로운 연결: " + userId + " (세션 ID: " + session.getId() + ")");
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        System.out.println("수신 메시지: " + message.getPayload());
-        // 모든 연결된 클라이언트에게 메시지 브로드캐스트
-        for (WebSocketSession s : sessions) {
+        String userId = userSessions.get(session); // 세션에서 userId 가져오기
+        System.out.println("수신 메시지 [" + userId + "]: " + message.getPayload());
+
+        // 모든 클라이언트에게 브로드캐스트
+        for (WebSocketSession s : userSessions.keySet()) {
             if (s.isOpen()) {
                 s.sendMessage(message);
             }
@@ -32,8 +38,9 @@ public class ChatHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        sessions.remove(session);
-        System.out.println("연결 종료: " + session.getId());
+        String userId = userSessions.remove(session); // 연결 종료 시 제거
+        System.out.println("연결 종료: " + userId + " (세션 ID: " + session.getId() + ")");
     }
+
 }
 
