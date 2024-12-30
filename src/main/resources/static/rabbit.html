@@ -50,7 +50,7 @@
       return;
     }
 
-    const socket = new SockJS("/stomp/chat");
+    const socket = new SockJS("/rabbit/stomp/chat");
     stompClient = Stomp.over(socket);
 
     stompClient.connect({}, () => {
@@ -118,7 +118,7 @@
 
     // 기존 방에서 퇴장 메시지 전송
     if (roomId) {
-      stompClient.send(`/app/chat/${roomId}/leave`, {}, JSON.stringify({
+      stompClient.send(`/rabbit/app/chat/${roomId}/leave`, {}, JSON.stringify({
         sender: userId,
         content: "",
         type: "LEAVE"
@@ -138,7 +138,7 @@
     document.getElementById("roomTitle").innerText = `채팅방: ${name}`;
 
     // 새로운 방 구독
-    subscription = stompClient.subscribe(`/topic/chat.${roomId}`, (message) => {
+    subscription = stompClient.subscribe(`/exchange/rabbit.topic/chat.${roomId}`, (message) => {
       const messages = document.getElementById("messages");
       const li = document.createElement("li");
       const msg = JSON.parse(message.body);
@@ -160,7 +160,7 @@
             });
 
     // 입장 메시지 전송
-    stompClient.send(`/app/chat/${roomId}/enter`, {}, JSON.stringify({
+    stompClient.send(`/rabbit/app/chat/${roomId}/enter`, {}, JSON.stringify({
       sender: userId,
       content: "",
       type: "ENTER"
@@ -173,7 +173,7 @@
     const message = document.getElementById("message").value;
     if (!message.trim()) return;
 
-    stompClient.send(`/app/chat/${roomId}/send`, {}, JSON.stringify({
+    stompClient.send(`/rabbit/app/chat/${roomId}/send`, {}, JSON.stringify({
       sender: userId,
       content: message,
       type: "CHAT"
@@ -185,7 +185,7 @@
   // 6. 브라우저 종료 시 퇴장 처리 및 소켓 연결 해제
   window.onbeforeunload = () => {
     if (stompClient && roomId) {
-      stompClient.send(`/app/chat/${roomId}/leave`, {}, JSON.stringify({
+      stompClient.send(`/rabbit/app/chat/${roomId}/leave`, {}, JSON.stringify({
         sender: userId,
         content: "",
         type: "LEAVE"
