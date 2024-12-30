@@ -20,8 +20,6 @@ public class ChatRoomService {
         ChatRoom room = new ChatRoom(id, name);
         chatRooms.put(id, room);
         chatMessages.put(id, new ArrayList<>()); // 메시지 초기화
-
-        System.out.println("id = " + id);
         return room;
     }
 

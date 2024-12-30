@@ -24,6 +24,8 @@ dependencies {
 	// LOMBOK
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
+	// Netty (STOMP BROKER RELAY)
+	implementation 'org.springframework.boot:spring-boot-starter-reactor-netty'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

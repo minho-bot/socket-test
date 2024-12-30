@@ -40,7 +40,7 @@ public class ChatController {
 
     // 입장 처리
     @MessageMapping("/chat/{roomId}/enter")
-    @SendTo("/topic/chat/{roomId}")
+    @SendTo("/topic/chat.{roomId}")
     public ChatMessage enter(@Payload ChatMessage message, @DestinationVariable String roomId) {
         message.setContent(message.getSender() + "님이 입장하셨습니다.");
         message.setType("ENTER");
@@ -50,9 +50,8 @@ public class ChatController {
 
     // 메시지 전송
     @MessageMapping("/chat/{roomId}/send")
-    @SendTo("/topic/chat/{roomId}")
+    @SendTo("/topic/chat.{roomId}")
     public ChatMessage sendMessage(@Payload ChatMessage message, @DestinationVariable String roomId) {
-        System.out.println("message = " + message.toString());
         message.setType("CHAT");
         chatRoomService.addMessage(roomId, message); // 메시지 저장
         return message;
@@ -60,7 +59,7 @@ public class ChatController {
 
     // 퇴장 처리
     @MessageMapping("/chat/{roomId}/leave")
-    @SendTo("/topic/chat/{roomId}")
+    @SendTo("/topic/chat.{roomId}")
     public ChatMessage leave(@Payload ChatMessage message, @DestinationVariable String roomId) {
         message.setContent(message.getSender() + "님이 퇴장하셨습니다.");
         message.setType("LEAVE");

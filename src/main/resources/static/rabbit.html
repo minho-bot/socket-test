@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>채팅방</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+</head>
+<body>
+<h1>채팅방</h1>
+
+<!-- 사용자 ID 입력 -->
+<div id="login-container">
+  <input id="userId" placeholder="사용자 ID를 입력하세요" />
+  <button onclick="connectWebSocket()">연결</button>
+</div>
+
+<!-- 채팅방 생성 및 새로고침 -->
+<div id="main-container" style="display:none;">
+  <input id="roomName" placeholder="채팅방 이름 입력" />
+  <button onclick="createRoom()">방 생성</button>
+  <button onclick="fetchRooms()">새로고침</button>
+</div>
+
+<!-- 채팅방 목록 -->
+<div>
+  <h2>채팅방 목록</h2>
+  <ul id="roomList"></ul>
+</div>
+
+<!-- 채팅방 내용 -->
+<div id="chat-container" style="display:none;">
+  <h2 id="roomTitle"></h2>
+  <ul id="messages"></ul>
+  <input id="message" placeholder="메시지를 입력하세요" />
+  <button onclick="sendMessage()">전송</button>
+</div>
+
+<script>
+  let stompClient = null;  // 웹소켓 클라이언트
+  let roomId = null;       // 현재 채팅방 ID
+  let userId = null;       // 사용자 ID
+  let subscription = null; // 현재 구독 정보
+
+  // 1. 웹소켓 연결 (아이디 입력 필수)
+  function connectWebSocket() {
+    userId = document.getElementById("userId").value.trim();
+    if (!userId) { // 아이디 미입력 시 경고
+      alert("사용자 ID를 입력하세요!");
+      return;
+    }
+
+    const socket = new SockJS("/stomp/chat");
+    stompClient = Stomp.over(socket);
+
+    stompClient.connect({}, () => {
+      console.log(`${userId}로 연결 완료!`);
+      document.getElementById("login-container").style.display = "none";
+      document.getElementById("main-container").style.display = "block"; // 기능 활성화
+      fetchRooms(); // 채팅방 목록 조회
+    });
+  }
+
+  // 2. 채팅방 생성
+  function createRoom() {
+    if (!userId) { // 아이디 입력 확인
+      alert("먼저 사용자 ID를 입력하세요!");
+      return;
+    }
+
+    const roomName = document.getElementById("roomName").value;
+    if (!roomName.trim()) {
+      alert("채팅방 이름을 입력하세요!");
+      return;
+    }
+
+    fetch(`/chat/room?name=${roomName}`, { method: "POST" })
+            .then(response => response.json())
+            .then(room => {
+              alert(`채팅방 생성 완료: ${room.name}`);
+              fetchRooms(); // 새로고침
+            });
+  }
+
+  // 3. 채팅방 목록 새로고침
+  function fetchRooms() {
+    if (!userId) { // 아이디 입력 확인
+      alert("먼저 사용자 ID를 입력하세요!");
+      return;
+    }
+
+    fetch("/chat/rooms")
+            .then(response => response.json())
+            .then(rooms => {
+              const roomList = document.getElementById("roomList");
+              roomList.innerHTML = "";
+
+              rooms.forEach(room => {
+                const li = document.createElement("li");
+                li.textContent = room.name;
+                li.onclick = () => joinRoom(room.id, room.name);
+                roomList.appendChild(li);
+              });
+            });
+  }
+
+  // 4. 채팅방 입장
+  async function joinRoom(id, name) {
+    if (!userId) { // 아이디 입력 확인
+      alert("먼저 사용자 ID를 입력하세요!");
+      return;
+    }
+
+    if (roomId === id) {
+      alert("이미 현재 방에 입장 중입니다!");
+      return;
+    }
+
+    // 기존 방에서 퇴장 메시지 전송
+    if (roomId) {
+      stompClient.send(`/app/chat/${roomId}/leave`, {}, JSON.stringify({
+        sender: userId,
+        content: "",
+        type: "LEAVE"
+      }));
+      console.log(`퇴장 메시지 전송: 방 ${roomId}`);
+    }
+
+    // 기존 구독 해제
+    if (subscription) {
+      subscription.unsubscribe();
+      console.log(`기존 방 구독 해제: 방 ${roomId}`);
+    }
+
+    // 새로운 방 설정
+    roomId = id;
+    document.getElementById("chat-container").style.display = "block";
+    document.getElementById("roomTitle").innerText = `채팅방: ${name}`;
+
+    // 새로운 방 구독
+    subscription = stompClient.subscribe(`/topic/chat.${roomId}`, (message) => {
+      const messages = document.getElementById("messages");
+      const li = document.createElement("li");
+      const msg = JSON.parse(message.body);
+      li.textContent = `[${msg.type}] ${msg.sender}: ${msg.content}`;
+      messages.appendChild(li);
+    });
+
+    // 기존 메시지 불러오기
+    await fetch(`/chat/room/${roomId}/messages`)
+            .then(response => response.json())
+            .then(messages => {
+              const messagesList = document.getElementById("messages");
+              messagesList.innerHTML = ""; // 메시지 초기화
+              messages.forEach(msg => {
+                const li = document.createElement("li");
+                li.textContent = `[${msg.type}] ${msg.sender}: ${msg.content}`;
+                messagesList.appendChild(li);
+              });
+            });
+
+    // 입장 메시지 전송
+    stompClient.send(`/app/chat/${roomId}/enter`, {}, JSON.stringify({
+      sender: userId,
+      content: "",
+      type: "ENTER"
+    }));
+    console.log(`입장 메시지 전송: 방 ${roomId}`);
+  }
+
+  // 5. 메시지 전송
+  function sendMessage() {
+    const message = document.getElementById("message").value;
+    if (!message.trim()) return;
+
+    stompClient.send(`/app/chat/${roomId}/send`, {}, JSON.stringify({
+      sender: userId,
+      content: message,
+      type: "CHAT"
+    }));
+
+    document.getElementById("message").value = "";
+  }
+
+  // 6. 브라우저 종료 시 퇴장 처리 및 소켓 연결 해제
+  window.onbeforeunload = () => {
+    if (stompClient && roomId) {
+      stompClient.send(`/app/chat/${roomId}/leave`, {}, JSON.stringify({
+        sender: userId,
+        content: "",
+        type: "LEAVE"
+      }));
+      stompClient.disconnect(); // 소켓 연결 해제
+    }
+  };
+</script>
+</body>
+</html>
