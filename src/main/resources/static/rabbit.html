@@ -127,10 +127,13 @@
     }
 
     // 기존 구독 해제
-    if (subscription) {
-      subscription.unsubscribe();
-      console.log(`기존 방 구독 해제: 방 ${roomId}`);
-    }
+    setTimeout(() => {
+      // 기존 구독 해제
+      if (subscription) {
+        subscription.unsubscribe();
+        console.log(`기존 방 구독 해제: 방 ${roomId}`);
+      }
+    }, 100);
 
     // 새로운 방 설정
     roomId = id;
